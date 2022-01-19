@@ -1,0 +1,61 @@
+﻿@page "/employees/add"
+@using BirthdayTracker.Shared.Models.Request
+@inject NavigationManager NavigationManager
+@inject HttpClient HttpClient
+@inject IMapper Mapper
+<h3>Add Employee</h3>
+
+<EditForm Model="@_employee" OnSubmit="HandleSubmit">
+    <DataAnnotationsValidator/>
+    <div class="form-group">
+        <label for="name">First Name</label>
+        <InputText id="name" @bind-Value="_employee.FirstName" class="form-control"/>
+        <ValidationMessage For="@(() => _employee.FirstName)"/>
+    </div>
+    <div class="form-group">
+        <label for="surname">Last Name</label>
+        <InputText id="surname" @bind-Value="_employee.LastName" class="form-control"/>
+        <ValidationMessage For="@(() => _employee.LastName)"/>
+    </div>
+    <div class="form-control">
+        <label for="position">Position</label>
+        <InputText id="position" @bind-Value="_employee.Position" class="form-control"/>
+        <ValidationMessage For="@(() => _employee.Position)"/>
+    </div>
+    <div class="form-group">
+        <label for="date">Date of Birth</label>
+        <InputDate id="date" @bind-Value="_employee.DateOfBirth" class="form-control"/>
+        <ValidationMessage For="@(() => _employee.DateOfBirth)"/>
+    </div>
+    <div class="float-right list-inline m-2">
+        <button type="submit" class="btn btn-primary list-inline-item">Save</button>
+        <button type="button" class="btn btn-danger list-inline-item" @onclick="HandleDiscard">Discard</button>
+    </div>
+</EditForm>
+
+@code {
+    private Employee _employee = new();
+
+    protected override void OnInitialized()
+    {
+    }
+
+    private async void HandleSubmit()
+    {
+        try
+        {
+            var datetime = _employee.DateOfBirth.ToString();
+            var data = Mapper.Map<EmployeeRequest>(_employee);
+            await HttpClient.PostAsJsonAsync<Employee>("/api/employees", _employee);
+        }
+        catch(Exception ex)
+        {
+            var exMessage = ex.Message;
+        }
+    }
+
+    private void HandleDiscard()
+    {
+        NavigationManager.NavigateTo("employees");
+    }
+}

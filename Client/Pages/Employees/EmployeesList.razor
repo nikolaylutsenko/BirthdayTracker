@@ -1,0 +1,73 @@
+﻿@page "/employees"
+@using BirthdayTracker.Shared
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="d-flex justify-content-between mb-5">
+    <h3 class="list-inline-item">Employees List</h3>
+    <button class="btn btn-primary list-inline-item" @onclick="AddEmployee">Add Employee</button>
+</div>
+
+@if (employees == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Position</th>
+                <th>Date of Birth</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var employee in employees)
+            {
+                <tr>
+                    <td>@employee.Id</td>
+                    <td>@employee.FirstName</td>
+                    <td>@employee.LastName</td>
+                    <td>@employee.Position</td>
+                    <td>@employee.DateOfBirth</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IEnumerable<Employee>? employees;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var test = await Http.GetAsync("/api/employees");
+
+            if (test.IsSuccessStatusCode)
+            {
+                try
+                {
+                    employees = await test.Content.ReadFromJsonAsync<IEnumerable<Employee>>();
+                }
+                catch (Exception ex)
+                {
+                    var s = ex.Message;
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            var exName = ex.Message;
+        }
+    }
+
+    private void AddEmployee()
+    {
+        NavigationManager.NavigateTo("employees/add");   
+    }
+}
