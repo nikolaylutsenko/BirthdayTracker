@@ -35,7 +35,26 @@ namespace BirthdayTracker.Backend.Data
                 NormalizedName = "User".ToUpper(),
                 ConcurrencyStamp = "dd62e685-29cf-4dd7-b59b-e44022d88d29"
             });
-            
+
+            modelBuider.Entity<IdentityUser>().HasData(new IdentityUser
+            {
+                Id = "25d733fa-b5ce-41fe-a868-beea7723a3e5",
+                UserName = "admin",
+                Email = "admin@admin.com",
+                EmailConfirmed = true,
+                ConcurrencyStamp = "25d733fa-b5ce-41fe-a868-beea7723a3e5",
+                NormalizedEmail = "admin@admin.com".ToUpper(),
+                NormalizedUserName = "admin".ToUpper(),
+                PasswordHash = "AQAAAAEAACcQAAAAENCkLthTPd0r7CXtX5/yOEaaKYTHaxSS19gjdFYysigNskCv/encZ9iMB6heC6TPvA==", // T1VsPaNoCbI@
+                SecurityStamp = "25d733fa-b5ce-41fe-a868-beea7723a3e5",
+            });
+
+            modelBuider.Entity<IdentityUserRole<string>>().HasData(new IdentityUserRole<string> 
+            { 
+                RoleId = "0a26e36f-1626-4298-9a97-34a8c4118e08",
+                UserId = "25d733fa-b5ce-41fe-a868-beea7723a3e5"
+            });
+
             base.OnModelCreating(modelBuider);
         }
 

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -134,13 +135,25 @@ app.MapPut("/api/employees/{id:int}", [Authorize] async (int id, EmployeeRequest
     return Results.NoContent();
 });
 
-app.MapDelete("/api/employees/{id:int}", [Authorize] async (int id) =>
+app.MapDelete("/api/employees/{id:int}", [Authorize] async (int id, HttpContext httpContext) =>
 {
-    var employee = employees.FirstOrDefault(employee => employee.Id == id);
+    // only Admin and Owner may delete all users
+    // but user may delete himself
+    if (httpContext.User.IsInRole("Admin") || httpContext.User.IsInRole("Owner") || httpContext.User.Claims.First(x => x.Type == "Name").Value == id.ToString())
+    {
+        var employee = employees.FirstOrDefault(employee => employee.Id == id);
 
-    employees.Remove(employee);
+        if( employee is null)
+        {
+            return Results.NotFound($"User with provided id {id} not found");
+        }
 
-    return Results.NoContent();
+        employees.Remove(employee);
+
+        return Results.NoContent();
+    }
+    
+    return Results.Unauthorized();
 });
 
 app.MapPost("/minimalapi/security/createUser",
@@ -168,6 +181,7 @@ app.MapPost("/minimalapi/security/getToken",
     [AllowAnonymous]async (UserManager<IdentityUser> userMgr, User user) =>
 {
     var identityUsr = await userMgr.FindByNameAsync(user.UserName);
+    var userRole = await userMgr.GetRolesAsync(identityUsr);
 
     if (await userMgr.CheckPasswordAsync(identityUsr, user.Password))
     {
@@ -175,7 +189,7 @@ app.MapPost("/minimalapi/security/getToken",
         var audience = builder.Configuration["Authentication:Audience"];
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Authentication:Key"]));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(issuer: issuer, audience: audience, signingCredentials: credentials);
+        var token = new JwtSecurityToken(issuer: issuer, audience: audience, new List<Claim>{new Claim("Name", identityUsr.Id.ToString()), new Claim(ClaimTypes.Role, userRole.First().ToString())}, signingCredentials: credentials);
         var tokenHandler = new JwtSecurityTokenHandler();
         var stringToken = tokenHandler.WriteToken(token);
         return Results.Ok(stringToken);
