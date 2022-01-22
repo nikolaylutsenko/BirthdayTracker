@@ -1,4 +1,5 @@
 using BirthdayTracker.Backend.Data;
+using BirthdayTracker.Backend.Models;
 using BirthdayTracker.Shared;
 using BirthdayTracker.Shared.Models.Request;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -39,7 +40,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("ConnectionName"));
 });
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+builder.Services.AddIdentity<AppUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -156,7 +157,7 @@ app.MapDelete("/api/employees/{id:int}", [Authorize] async (int id, HttpContext 
     return Results.Unauthorized();
 });
 
-app.MapPost("/minimalapi/security/createUser",
+app.MapPost("/api/security/register",
     [AllowAnonymous]async (UserManager<IdentityUser> userMgr, User user) =>
  {
      var identityUser = new IdentityUser()
@@ -175,9 +176,30 @@ app.MapPost("/minimalapi/security/createUser",
      {
          return Results.BadRequest();
      }
- });
+ }); 
 
-app.MapPost("/minimalapi/security/getToken",
+//app.MapPost("/api/security/createUser",
+//     async (UserManager<IdentityUser> userMgr, CompanyOwner companyOwner) =>
+//     {
+//         var identityUser = new IdentityUser()
+//         {
+//             UserName = companyOwner.UserName,
+//             Email = companyOwner.UserName + "@example.com"
+//         };
+
+//         var result = await userMgr.CreateAsync(identityUser, companyOwner.Password);
+
+//         if (result.Succeeded)
+//         {
+//             return Results.Ok();
+//         }
+//         else
+//         {
+//             return Results.BadRequest();
+//         }
+//     });
+
+app.MapPost("/api/security/getToken",
     [AllowAnonymous]async (UserManager<IdentityUser> userMgr, User user) =>
 {
     var identityUsr = await userMgr.FindByNameAsync(user.UserName);
