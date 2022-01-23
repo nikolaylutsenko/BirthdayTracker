@@ -1,7 +1,10 @@
+using AutoMapper;
 using BirthdayTracker.Backend.Data;
-using BirthdayTracker.Backend.Models;
-using BirthdayTracker.Shared;
+using BirthdayTracker.Backend.Services;
+using BirthdayTracker.Shared.Entities;
 using BirthdayTracker.Shared.Models.Request;
+using BirthdayTracker.Shared.Requests;
+using BirthdayTracker.Shared.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -40,7 +43,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("ConnectionName"));
 });
 
-builder.Services.AddIdentity<AppUser, IdentityRole>()
+builder.Services.AddIdentity<AppUser, AppRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -65,6 +68,10 @@ builder.Services.AddAuthentication(o =>
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddAutoMapper(typeof(Program));
+
+builder.Services.AddScoped<ICompanyService, CompanyService>();
+
 var app = builder.Build();
 
 app.UseAuthentication();
@@ -79,11 +86,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var employees = new List<Employee>
+var employees = new List<AppUser>
 {
-    new Employee { Id = 1, FirstName = "Basia", LastName = "Purpur", Position = "Nasty Kitten", DateOfBirth = DateTime.Parse("12/10/2020 12:00:00 AM")},
-    new Employee { Id = 2, FirstName = "Nikolay", LastName = "Lutsenko", Position = ".NET Developer", DateOfBirth = DateTime.Parse("17/11/1987 12:00:00 AM")},
-    new Employee { Id = 3, FirstName = "Daria", LastName = "Lutsenko", Position = "Accountant", DateOfBirth = DateTime.Parse("15/10/1992 12:00:00 AM")}
+    new AppUser { Id = "1", Name = "Basia", Surname = "Purpur", PositionName = "Nasty Kitten", BirthDay = DateTime.Parse("12/10/2020 12:00:00 AM")},
+    new AppUser { Id = "2", Name = "Nikolay", Surname = "Lutsenko", PositionName = ".NET Developer", BirthDay = DateTime.Parse("17/11/1987 12:00:00 AM")},
+    new AppUser { Id = "3", Name = "Daria", Surname = "Lutsenko", PositionName = "Accountant", BirthDay = DateTime.Parse("15/10/1992 12:00:00 AM")}
 };
 
 app.MapGet("/api/employees", [Authorize] async () =>
@@ -94,7 +101,7 @@ app.MapGet("/api/employees", [Authorize] async () =>
  })
 .WithName("GetEmployees");
 
-app.MapGet("/api/employees/{id:int}", [Authorize] async (int id) =>
+app.MapGet("/api/employees/{id:int}", [Authorize] async (string id) =>
 {
     var task = Task.Run(() => employees.FirstOrDefault(x => x.Id == id));
 
@@ -105,14 +112,9 @@ app.MapGet("/api/employees/{id:int}", [Authorize] async (int id) =>
 })
 .WithName("GetEmployee");
 
-app.MapPost("/api/employees", [Authorize] async (EmployeeRequest request) =>
+app.MapPost("/api/employees", [Authorize] async (IMapper mapper, AddUserRequest request) =>
 {
-    Employee employee = new();
-    employee.Id = employees.LastOrDefault().Id + 1;
-    employee.FirstName = request.FirstName;
-    employee.LastName = request.LastName;
-    employee.Position = request.Position;
-    employee.DateOfBirth = request.DateOfBirth;
+    var employee = mapper.Map<AppUser>(request);
 
     var task = Task.Run(() => employees.Add(employee));
 
@@ -121,22 +123,22 @@ app.MapPost("/api/employees", [Authorize] async (EmployeeRequest request) =>
     return Results.Created("/api/employees", employee);
 });
 
-app.MapPut("/api/employees/{id:int}", [Authorize] async (int id, EmployeeRequest request) =>
-{
-    var employee = employees.FirstOrDefault(employees => employees.Id == id);
+//app.MapPut("/api/employees/{id:int}", [Authorize] async (string id, AddUserRequest request) =>
+//{
+//    var employee = employees.FirstOrDefault(employees => employees.Id == id);
 
-    if (employee is null)
-        return Results.NotFound();
+//    if (employee is null)
+//        return Results.NotFound();
 
-    employee.FirstName = request.FirstName;
-    employee.LastName = request.LastName;
-    employee.Position = request.Position;
-    employee.DateOfBirth = request.DateOfBirth;
+//    employee.FirstName = request.FirstName;
+//    employee.LastName = request.LastName;
+//    employee.Position = request.Position;
+//    employee.DateOfBirth = request.DateOfBirth;
 
-    return Results.NoContent();
-});
+//    return Results.NoContent();
+//});
 
-app.MapDelete("/api/employees/{id:int}", [Authorize] async (int id, HttpContext httpContext) =>
+app.MapDelete("/api/employees/{id:int}", [Authorize] async (string id, HttpContext httpContext) =>
 {
     // only Admin and Owner may delete all users
     // but user may delete himself
@@ -157,27 +159,46 @@ app.MapDelete("/api/employees/{id:int}", [Authorize] async (int id, HttpContext 
     return Results.Unauthorized();
 });
 
+// this endpoint is for register company owner with role CompanyOwner
 app.MapPost("/api/security/register",
-    [AllowAnonymous]async (UserManager<IdentityUser> userMgr, User user) =>
+    [AllowAnonymous]async (IMapper mapper, ICompanyService companyService, UserManager<AppUser> userMgr, CompanyOwnerRequest companyOwnerRequest) =>
  {
-     var identityUser = new IdentityUser()
+     if(companyService.GetAllAsync().Result.FirstOrDefault(x => x.Name == companyOwnerRequest.CompanyName) != null)
      {
-         UserName = user.UserName,
-         Email = user.UserName + "@example.com"
-     };
+         return Results.BadRequest($"Company with name {companyOwnerRequest.CompanyName} is already exists");
+     }
 
-     var result = await userMgr.CreateAsync(identityUser, user.Password);
+     // here we must create new company and set it relationship
+     var company = new Company { Id = Guid.NewGuid().ToString(), Name = companyOwnerRequest.CompanyName};
+     await companyService.AddAsync(company);
 
-     if (result.Succeeded)
+     var companyOwner = mapper.Map<AppUser>(companyOwnerRequest);
+     companyOwner.CompanyId = company.Id;
+
+     var addUserResult = await userMgr.CreateAsync(companyOwner, companyOwnerRequest.Password);
+
+     if (addUserResult.Succeeded)
      {
-         return Results.Ok();
+         var setRoleResult = await userMgr.AddToRoleAsync(companyOwner, "Owner");
+
+         if (setRoleResult.Succeeded)
+         {
+             company.CompanyOwnerId = companyOwner.Id;
+             companyService.UpdateAsync(company);
+
+             return Results.Ok();
+         }
+
+         return Results.BadRequest();
      }
      else
      {
+         // todo: rewrite this return, because it is not correct
          return Results.BadRequest();
      }
  }); 
 
+// this endpoint is for add employee for company with role User
 //app.MapPost("/api/security/createUser",
 //     async (UserManager<IdentityUser> userMgr, CompanyOwner companyOwner) =>
 //     {
@@ -200,12 +221,12 @@ app.MapPost("/api/security/register",
 //     });
 
 app.MapPost("/api/security/getToken",
-    [AllowAnonymous]async (UserManager<IdentityUser> userMgr, User user) =>
+    [AllowAnonymous]async (UserManager<AppUser> userMgr, LoginRequest request) =>
 {
-    var identityUsr = await userMgr.FindByNameAsync(user.UserName);
+    var identityUsr = await userMgr.FindByNameAsync(request.UserName);
     var userRole = await userMgr.GetRolesAsync(identityUsr);
 
-    if (await userMgr.CheckPasswordAsync(identityUsr, user.Password))
+    if (await userMgr.CheckPasswordAsync(identityUsr, request.Password))
     {
         var issuer = builder.Configuration["Authentication:Issuer"];
         var audience = builder.Configuration["Authentication:Audience"];

@@ -1,5 +1,5 @@
 ﻿@page "/employees/add"
-@using BirthdayTracker.Shared.Models.Request
+@    using BirthdayTracker.Shared.Models.Request
 @inject NavigationManager NavigationManager
 @inject HttpClient HttpClient
 @inject IMapper Mapper
@@ -45,7 +45,7 @@
         try
         {
             var datetime = _employee.DateOfBirth.ToString();
-            var data = Mapper.Map<EmployeeRequest>(_employee);
+            var data = Mapper.Map<AddUserRequest>(_employee);
             await HttpClient.PostAsJsonAsync<Employee>("/api/employees", _employee);
         }
         catch(Exception ex)

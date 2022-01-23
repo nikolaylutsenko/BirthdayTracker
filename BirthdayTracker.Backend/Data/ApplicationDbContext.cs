@@ -1,5 +1,5 @@
-﻿using BirthdayTracker.Backend.Models;
-using BirthdayTracker.Shared;
+﻿using BirthdayTracker.Shared;
+using BirthdayTracker.Shared.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -107,9 +107,11 @@ namespace BirthdayTracker.Backend.Data
                 UserId = "25d733fa-b5ce-41fe-a868-beea7723a3e5"
             });
 
-            
+            modelBuider.Entity<Company>()
+                .HasMany(emp => emp.Employees)
+                .WithOne(company => company.Company);
         }
 
-        public DbSet<Employee> Employees { get; set; }
+        public DbSet<Company> Companies { get;set;}
     }
 }

@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using BirthdayTracker.Shared;
+using BirthdayTracker.Shared.Entities;
 using BirthdayTracker.Shared.Models.Request;
 using BirthdayTracker.Shared.Models.Response;
 
@@ -15,7 +15,7 @@ namespace BirthdayTracker.Server.Infrastructure
 
         private void MapRequest()
         {
-            CreateMap<EmployeeRequest, Employee>().ReverseMap();
+            CreateMap<AddUserRequest, Employee>().ReverseMap();
         }
 
         private void MapResponse()

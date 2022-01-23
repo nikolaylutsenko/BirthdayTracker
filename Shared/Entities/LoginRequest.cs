@@ -1,6 +1,6 @@
-﻿namespace BirthdayTracker.Shared;
+﻿namespace BirthdayTracker.Shared.Entities;
 
-public record User
+public record LoginRequest
 {
     public string UserName { get; init; }
     public string Password { get; init; }

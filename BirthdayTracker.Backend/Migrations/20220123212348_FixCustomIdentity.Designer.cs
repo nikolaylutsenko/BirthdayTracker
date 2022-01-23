@@ -3,6 +3,7 @@ using System;
 using BirthdayTracker.Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BirthdayTracker.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20220123212348_FixCustomIdentity")]
+    partial class FixCustomIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "6.0.1");
@@ -77,9 +79,6 @@ namespace BirthdayTracker.Backend.Migrations
                     b.Property<DateTime>("BirthDay")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CompanyId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -142,8 +141,6 @@ namespace BirthdayTracker.Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyId");
-
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -204,7 +201,8 @@ namespace BirthdayTracker.Backend.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CompanyOwnerId")
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -212,6 +210,9 @@ namespace BirthdayTracker.Backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppUserId")
+                        .IsUnique();
 
                     b.ToTable("Companies");
                 });
@@ -303,15 +304,6 @@ namespace BirthdayTracker.Backend.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("BirthdayTracker.Shared.Entities.AppUser", b =>
-                {
-                    b.HasOne("BirthdayTracker.Shared.Entities.Company", "Company")
-                        .WithMany("Employees")
-                        .HasForeignKey("CompanyId");
-
-                    b.Navigation("Company");
-                });
-
             modelBuilder.Entity("BirthdayTracker.Shared.Entities.AppUserAppRole", b =>
                 {
                     b.HasOne("BirthdayTracker.Shared.Entities.AppRole", "Role")
@@ -329,6 +321,17 @@ namespace BirthdayTracker.Backend.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("BirthdayTracker.Shared.Entities.Company", b =>
+                {
+                    b.HasOne("BirthdayTracker.Shared.Entities.AppUser", "MyProperty")
+                        .WithOne("Company")
+                        .HasForeignKey("BirthdayTracker.Shared.Entities.Company", "AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MyProperty");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -376,16 +379,14 @@ namespace BirthdayTracker.Backend.Migrations
                 {
                     b.Navigation("Claims");
 
+                    b.Navigation("Company")
+                        .IsRequired();
+
                     b.Navigation("Logins");
 
                     b.Navigation("Tokens");
 
                     b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("BirthdayTracker.Shared.Entities.Company", b =>
-                {
-                    b.Navigation("Employees");
                 });
 #pragma warning restore 612, 618
         }

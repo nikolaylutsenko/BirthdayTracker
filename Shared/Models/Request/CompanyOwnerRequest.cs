@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BirthdayTracker.Shared
+namespace BirthdayTracker.Shared.Requests
 {
-    public record CompanyOwner
+    public record CompanyOwnerRequest
     {
         public string Name { get; set; }
         public string Surname { get; set; }
