@@ -41,12 +41,22 @@ namespace BirthdayTracker.Backend.Services
 
         public async Task<Company> GetAsync(string id)
         {
-            var user = await _context.Companies.FirstOrDefaultAsync(x => x.Id == id);
+            var company = await _context.Companies.FirstOrDefaultAsync(x => x.Id == id);
 
-            if (user == null)
-                throw new Exception($"User with id {id} not found");
+            if (company == null)
+                throw new Exception($"Company with id {id} not found");
 
-            return user;
+            return company;
+        }
+
+        public async Task<Company> GetByOwnerIdAsync(string ownerId)
+        {
+            var company = await _context.Companies.FirstOrDefaultAsync(x => x.CompanyOwnerId == ownerId);
+
+            if(company == null)
+                throw new Exception($"Company with provided owner id {ownerId} not found");
+
+            return company;
         }
 
         public async Task UpdateAsync(Company company)

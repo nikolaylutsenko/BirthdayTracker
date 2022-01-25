@@ -15,7 +15,7 @@ namespace BirthdayTracker.Server.Infrastructure
 
         private void MapRequest()
         {
-            CreateMap<AddUserRequest, Employee>().ReverseMap();
+            CreateMap<AddEmployeeRequest, Employee>().ReverseMap();
         }
 
         private void MapResponse()

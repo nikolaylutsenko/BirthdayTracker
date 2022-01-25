@@ -5,6 +5,7 @@ namespace BirthdayTracker.Shared.Services.Interfaces
     public interface ICompanyService
     {
         Task<Company> GetAsync(string id);
+        Task<Company> GetByOwnerIdAsync(string ownerId);
         Task<IEnumerable<Company>> GetAllAsync();
         Task DeleteAsync(string id);
         Task AddAsync(Company company);

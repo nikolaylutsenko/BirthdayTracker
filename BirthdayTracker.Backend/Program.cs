@@ -1,6 +1,7 @@
 using AutoMapper;
 using BirthdayTracker.Backend.Data;
 using BirthdayTracker.Backend.Services;
+using BirthdayTracker.Shared.Constants;
 using BirthdayTracker.Shared.Entities;
 using BirthdayTracker.Shared.Models.Request;
 using BirthdayTracker.Shared.Requests;
@@ -42,6 +43,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlite(builder.Configuration.GetConnectionString("ConnectionName"));
 });
+
+//builder.Services.AddDatabaseDeveloperPageExceptionFilter(); // wtf is this for?
 
 builder.Services.AddIdentity<AppUser, AppRole>()
     .AddEntityFrameworkStores<AppDbContext>()
@@ -112,7 +115,7 @@ app.MapGet("/api/employees/{id:int}", [Authorize] async (string id) =>
 })
 .WithName("GetEmployee");
 
-app.MapPost("/api/employees", [Authorize] async (IMapper mapper, AddUserRequest request) =>
+app.MapPost("/api/employees", [Authorize] async (IMapper mapper, AddEmployeeRequest request) =>
 {
     var employee = mapper.Map<AppUser>(request);
 
@@ -168,9 +171,7 @@ app.MapPost("/api/security/register",
          return Results.BadRequest($"Company with name {companyOwnerRequest.CompanyName} is already exists");
      }
 
-     // here we must create new company and set it relationship
      var company = new Company { Id = Guid.NewGuid().ToString(), Name = companyOwnerRequest.CompanyName};
-     await companyService.AddAsync(company);
 
      var companyOwner = mapper.Map<AppUser>(companyOwnerRequest);
      companyOwner.CompanyId = company.Id;
@@ -184,7 +185,7 @@ app.MapPost("/api/security/register",
          if (setRoleResult.Succeeded)
          {
              company.CompanyOwnerId = companyOwner.Id;
-             companyService.UpdateAsync(company);
+             await companyService.AddAsync(company);
 
              return Results.Ok();
          }
@@ -196,29 +197,40 @@ app.MapPost("/api/security/register",
          // todo: rewrite this return, because it is not correct
          return Results.BadRequest();
      }
- }); 
+ });
 
 // this endpoint is for add employee for company with role User
-//app.MapPost("/api/security/createUser",
-//     async (UserManager<IdentityUser> userMgr, CompanyOwner companyOwner) =>
-//     {
-//         var identityUser = new IdentityUser()
-//         {
-//             UserName = companyOwner.UserName,
-//             Email = companyOwner.UserName + "@example.com"
-//         };
+app.MapPost("/api/security/createUser", 
+    async (UserManager<AppUser> userMgr, HttpContext httpContext, ICompanyService companyService, IMapper mapper, AddEmployeeRequest addEmployeeRequest) =>
+     {
+         var ownerId = httpContext.User.Claims.FirstOrDefault(x => x.Type.ToLower().Contains("name"))?.Value;
 
-//         var result = await userMgr.CreateAsync(identityUser, companyOwner.Password);
+         if (ownerId is null)
+             return Results.StatusCode(500);
 
-//         if (result.Succeeded)
-//         {
-//             return Results.Ok();
-//         }
-//         else
-//         {
-//             return Results.BadRequest();
-//         }
-//     });
+         var company = await companyService.GetByOwnerIdAsync(ownerId);
+
+         var employee = mapper.Map<AppUser>(addEmployeeRequest);
+         employee.CompanyId = company.Id;
+
+         var addEmployeeResult = await userMgr.CreateAsync(employee, addEmployeeRequest.Password);
+
+         if (addEmployeeResult.Succeeded)
+         {
+             var setUserRole = await userMgr.AddToRoleAsync(employee, AppConstants.UserRoleName);
+
+             if (setUserRole.Succeeded)
+             {
+                 return Results.Ok();
+             }
+
+             return Results.StatusCode(500);
+         }
+         else
+         {
+             return Results.BadRequest();
+         }
+     });
 
 app.MapPost("/api/security/getToken",
     [AllowAnonymous]async (UserManager<AppUser> userMgr, LoginRequest request) =>

@@ -16,7 +16,7 @@ namespace BirthdayTracker.Backend.Infrastructure
 
         private void MapRequest()
         {
-            CreateMap<AddUserRequest, AppUser>();
+            CreateMap<AddEmployeeRequest, AppUser>();
             CreateMap<UpdateUserRequest, AppUser>();
             CreateMap<CompanyOwnerRequest, AppUser>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid().ToString()))
