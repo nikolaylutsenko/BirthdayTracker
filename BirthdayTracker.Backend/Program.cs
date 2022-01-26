@@ -4,6 +4,7 @@ using BirthdayTracker.Backend.Services;
 using BirthdayTracker.Shared.Constants;
 using BirthdayTracker.Shared.Entities;
 using BirthdayTracker.Shared.Models.Request;
+using BirthdayTracker.Shared.Models.Response;
 using BirthdayTracker.Shared.Requests;
 using BirthdayTracker.Shared.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -89,81 +90,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var employees = new List<AppUser>
-{
-    new AppUser { Id = "1", Name = "Basia", Surname = "Purpur", PositionName = "Nasty Kitten", BirthDay = DateTime.Parse("12/10/2020 12:00:00 AM")},
-    new AppUser { Id = "2", Name = "Nikolay", Surname = "Lutsenko", PositionName = ".NET Developer", BirthDay = DateTime.Parse("17/11/1987 12:00:00 AM")},
-    new AppUser { Id = "3", Name = "Daria", Surname = "Lutsenko", PositionName = "Accountant", BirthDay = DateTime.Parse("15/10/1992 12:00:00 AM")}
-};
-
-app.MapGet("/api/employees", [Authorize] async () =>
- {
-     var task = Task.Run(() => employees);
-
-     return Results.Ok(await task);
- })
-.WithName("GetEmployees");
-
-app.MapGet("/api/employees/{id:int}", [Authorize] async (string id) =>
-{
-    var task = Task.Run(() => employees.FirstOrDefault(x => x.Id == id));
-
-    if (task.Result == null)
-        return Results.NotFound();
-
-    return Results.Ok(task.Result);
-})
-.WithName("GetEmployee");
-
-app.MapPost("/api/employees", [Authorize] async (IMapper mapper, AddEmployeeRequest request) =>
-{
-    var employee = mapper.Map<AppUser>(request);
-
-    var task = Task.Run(() => employees.Add(employee));
-
-    await task;
-
-    return Results.Created("/api/employees", employee);
-});
-
-//app.MapPut("/api/employees/{id:int}", [Authorize] async (string id, AddUserRequest request) =>
-//{
-//    var employee = employees.FirstOrDefault(employees => employees.Id == id);
-
-//    if (employee is null)
-//        return Results.NotFound();
-
-//    employee.FirstName = request.FirstName;
-//    employee.LastName = request.LastName;
-//    employee.Position = request.Position;
-//    employee.DateOfBirth = request.DateOfBirth;
-
-//    return Results.NoContent();
-//});
-
-app.MapDelete("/api/employees/{id:int}", [Authorize] async (string id, HttpContext httpContext) =>
-{
-    // only Admin and Owner may delete all users
-    // but user may delete himself
-    if (httpContext.User.IsInRole("Admin") || httpContext.User.IsInRole("Owner") || httpContext.User.Claims.First(x => x.Type == "Name").Value == id.ToString())
-    {
-        var employee = employees.FirstOrDefault(employee => employee.Id == id);
-
-        if( employee is null)
-        {
-            return Results.NotFound($"User with provided id {id} not found");
-        }
-
-        employees.Remove(employee);
-
-        return Results.NoContent();
-    }
-    
-    return Results.Unauthorized();
-});
-
 // this endpoint is for register company owner with role CompanyOwner
-app.MapPost("/api/security/register",
+app.MapPost("/api/register",
     [AllowAnonymous]async (IMapper mapper, ICompanyService companyService, UserManager<AppUser> userMgr, CompanyOwnerRequest companyOwnerRequest) =>
  {
      if(companyService.GetAllAsync().Result.FirstOrDefault(x => x.Name == companyOwnerRequest.CompanyName) != null)
@@ -199,38 +127,119 @@ app.MapPost("/api/security/register",
      }
  });
 
+app.MapGet("/api/employees", [Authorize]async (UserManager<AppUser> userManager, AppDbContext context, HttpContext httpContext, IMapper mapper) =>
+{
+    var ownerId = httpContext.User.Claims.FirstOrDefault(x => x.Type.ToLower().Contains("name"))?.Value;
+
+    if (ownerId is null)
+        return Results.StatusCode(500);
+
+    var owner = await userManager.FindByIdAsync(ownerId);
+
+    var users = await context.Users.Where(x => x.CompanyId == owner.CompanyId).ToListAsync();
+
+    return Results.Ok(mapper.Map<IEnumerable<EmployeeResponse>>(users));
+})
+.WithName("GetEmployees");
+
+app.MapGet("/api/employees/{id:int}", [Authorize] async (UserManager < AppUser > userManager, AppDbContext context, HttpContext httpContext, string id) =>
+{
+    var ownerId = httpContext.User.Claims.FirstOrDefault(x => x.Type.ToLower().Contains("name"))?.Value;
+
+    if (ownerId is null)
+        return Results.StatusCode(500);
+
+    var owner = await userManager.FindByIdAsync(ownerId);
+
+    var user = await context.Users.Where(x => x.CompanyId == owner.CompanyId).FirstOrDefaultAsync(x => x.Id == id);
+
+    if (user == null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(user);
+})
+.WithName("GetEmployee");
+
 // this endpoint is for add employee for company with role User
-app.MapPost("/api/security/createUser", 
-    async (UserManager<AppUser> userMgr, HttpContext httpContext, ICompanyService companyService, IMapper mapper, AddEmployeeRequest addEmployeeRequest) =>
-     {
-         var ownerId = httpContext.User.Claims.FirstOrDefault(x => x.Type.ToLower().Contains("name"))?.Value;
+app.MapPost("/api/employee",
+    [Authorize] async (UserManager<AppUser> userMgr, HttpContext httpContext, ICompanyService companyService, IMapper mapper, AddEmployeeRequest addEmployeeRequest) =>
+    {
+        var ownerId = httpContext.User.Claims.FirstOrDefault(x => x.Type.ToLower().Contains("name"))?.Value;
 
-         if (ownerId is null)
-             return Results.StatusCode(500);
+        if (ownerId is null)
+            return Results.StatusCode(500);
 
-         var company = await companyService.GetByOwnerIdAsync(ownerId);
+        var company = await companyService.GetByOwnerIdAsync(ownerId);
 
-         var employee = mapper.Map<AppUser>(addEmployeeRequest);
-         employee.CompanyId = company.Id;
+        var employee = mapper.Map<AppUser>(addEmployeeRequest);
+        employee.CompanyId = company.Id;
 
-         var addEmployeeResult = await userMgr.CreateAsync(employee, addEmployeeRequest.Password);
+        var addEmployeeResult = await userMgr.CreateAsync(employee, addEmployeeRequest.Password);
 
-         if (addEmployeeResult.Succeeded)
-         {
-             var setUserRole = await userMgr.AddToRoleAsync(employee, AppConstants.UserRoleName);
+        if (addEmployeeResult.Succeeded)
+        {
+            var setUserRole = await userMgr.AddToRoleAsync(employee, AppConstants.UserRoleName);
 
-             if (setUserRole.Succeeded)
-             {
-                 return Results.Ok();
-             }
+            if (setUserRole.Succeeded)
+            {
+                return Results.Created("/api/employees", mapper.Map<EmployeeResponse>(employee));
+            }
 
-             return Results.StatusCode(500);
-         }
-         else
-         {
-             return Results.BadRequest();
-         }
-     });
+            return Results.StatusCode(500);
+        }
+        else
+        {
+            // todo: add single error message and set it up at AutomapperProfile
+            return Results.BadRequest(addEmployeeResult.Errors.Select(x => x.Description));
+        }
+    }).WithName("AddEmployee");
+
+app.MapPut("/api/employees/{id:int}", [Authorize] async (IMapper mapper, UserManager<AppUser> userManager, string id, UpdateEmployeeRequest updateEmployeeRequest) =>
+{
+    var oldEmployee = await userManager.FindByIdAsync(id);
+
+    if (oldEmployee is null)
+        return Results.NotFound($"Employee with privided id {id} not found");
+
+    var updatedEmployee = mapper.Map(updateEmployeeRequest, oldEmployee);
+
+    var updateResult = await userManager.UpdateAsync(updatedEmployee);
+
+    if (!updateResult.Succeeded)
+    {
+        return Results.StatusCode(500);
+    }
+
+    return Results.NoContent();
+}).WithName("UpdateEmployee");
+
+app.MapDelete("/api/employees/{id:int}", [Authorize] async (UserManager<AppUser> userManager, HttpContext httpContext, string id) =>
+{
+    // only Admin and Owner may delete all users
+    // but user may delete himself
+    if (httpContext.User.IsInRole("Admin") || httpContext.User.IsInRole("Owner") || httpContext.User.Claims.First(x => x.Type == "Name").Value == id.ToString())
+    {
+        var employee = await userManager.FindByIdAsync(id);
+
+        if (employee is null)
+        {
+            return Results.NotFound($"User with provided id {id} not found");
+        }
+
+        var deleteResult = await userManager.DeleteAsync(employee);
+
+        if (!deleteResult.Succeeded)
+        {
+            return Results.StatusCode(500);
+        }
+
+        return Results.NoContent();
+    }
+
+    return Results.Unauthorized();
+}).WithName("DeleteEmployee");
 
 app.MapPost("/api/security/getToken",
     [AllowAnonymous]async (UserManager<AppUser> userMgr, LoginRequest request) =>
@@ -247,6 +256,7 @@ app.MapPost("/api/security/getToken",
         var token = new JwtSecurityToken(issuer: issuer, audience: audience, new List<Claim>{new Claim("Name", identityUsr.Id.ToString()), new Claim(ClaimTypes.Role, userRole.First().ToString())}, signingCredentials: credentials);
         var tokenHandler = new JwtSecurityTokenHandler();
         var stringToken = tokenHandler.WriteToken(token);
+
         return Results.Ok(stringToken);
     }
     else

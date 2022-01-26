@@ -89,7 +89,6 @@ namespace BirthdayTracker.Backend.Data
                 PasswordHash = "AQAAAAEAACcQAAAAENCkLthTPd0r7CXtX5/yOEaaKYTHaxSS19gjdFYysigNskCv/encZ9iMB6heC6TPvA==", // T1VsPaNoCbI@
                 SecurityStamp = "25d733fa-b5ce-41fe-a868-beea7723a3e5",
                 BirthDay = DateTime.Parse("2022-01-22T00:00:00"),
-                CompanyName = "Birthday Tracker",
                 Name = "Admin",
                 Surname = "Admin",
                 PositionName = "Admin",

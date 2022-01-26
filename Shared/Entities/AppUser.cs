@@ -8,7 +8,6 @@ public class AppUser : IdentityUser<string>
     public string Surname { get; set; }
     public DateTime BirthDay { get; set; }
     public string PositionName { get; set; }
-    public string CompanyName { get; set; }
     public string? CompanyId { get; set; }
 
     public virtual ICollection<IdentityUserClaim<string>> Claims { get; set; }
