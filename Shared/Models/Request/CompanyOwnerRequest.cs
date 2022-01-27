@@ -1,37 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace BirthdayTracker.Shared.Models.Request;
 
-namespace BirthdayTracker.Shared.Requests
+public record CompanyOwnerRequest
 {
-    public record CompanyOwnerRequest
-    {
-        [Required]
-        [RegularExpression("[a-zA-Z '-]")]
-        public string Name { get; set; }
-
-        [Required]
-        [RegularExpression("[a-zA-Z '-]")]
-        public string Surname { get; set; }
-
-        [Required]
-        [DataType(DataType.Date)]
-        public DateTime BirthDay { get; set; }
-
-        [Required]
-        [RegularExpression(@"/^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/gm")]
-        public string Email { get; set; }
-
-        [Required]
-        public string Password { get; set; }
-
-        [Required]
-        public string CompanyName { get; set; }
-
-        [Required]
-        public string PositionName { get; set; }
-    }
+    public string Name { get; set; }
+    public string Surname { get; set; }
+    public DateTime BirthDay { get; set; }
+    public string Email { get; set; }
+    public string Password { get; set; }
+    public string CompanyName { get; set; }
+    public string PositionName { get; set; }
 }

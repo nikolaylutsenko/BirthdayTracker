@@ -2,7 +2,7 @@
 using BirthdayTracker.Shared.Entities;
 using BirthdayTracker.Shared.Models.Request;
 using BirthdayTracker.Shared.Models.Response;
-using BirthdayTracker.Shared.Requests;
+using FluentValidation.Results;
 
 namespace BirthdayTracker.Backend.Infrastructure
 {
