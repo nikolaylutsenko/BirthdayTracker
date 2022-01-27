@@ -1,5 +1,6 @@
 using AutoMapper;
 using BirthdayTracker.Backend.Data;
+using BirthdayTracker.Backend.Helpers;
 using BirthdayTracker.Backend.Services;
 using BirthdayTracker.Shared.Constants;
 using BirthdayTracker.Shared.Entities;
@@ -7,6 +8,7 @@ using BirthdayTracker.Shared.Models.Request;
 using BirthdayTracker.Shared.Models.Response;
 using BirthdayTracker.Shared.Requests;
 using BirthdayTracker.Shared.Services.Interfaces;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -74,7 +76,11 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddAutoMapper(typeof(Program));
 
+builder.Services.AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<Program>());
+
 builder.Services.AddScoped<ICompanyService, CompanyService>();
+
+builder.Services.AddScoped<IMinimalValidator, MinimalValidator>();
 
 var app = builder.Build();
 
@@ -92,8 +98,15 @@ app.UseHttpsRedirection();
 
 // this endpoint is for register company owner with role CompanyOwner
 app.MapPost("/api/register",
-    [AllowAnonymous]async (IMapper mapper, ICompanyService companyService, UserManager<AppUser> userMgr, CompanyOwnerRequest companyOwnerRequest) =>
+    [AllowAnonymous]async (IMapper mapper, ICompanyService companyService, UserManager<AppUser> userMgr, IMinimalValidator minimalValidator, CompanyOwnerRequest companyOwnerRequest) =>
  {
+     var validationResults = minimalValidator.Validate(companyOwnerRequest);
+
+     if (!validationResults.IsValid)
+     {
+         return Results.ValidationProblem(validationResults.Errors);
+     }
+
      if(companyService.GetAllAsync().Result.FirstOrDefault(x => x.Name == companyOwnerRequest.CompanyName) != null)
      {
          return Results.BadRequest($"Company with name {companyOwnerRequest.CompanyName} is already exists");
